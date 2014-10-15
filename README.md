@@ -807,6 +807,11 @@ Version 2.0.1 (master)
 * Added `XLFormRowDescriptorTypeSelectorPopover` row type and example.
 * CI added. Created Test project into Tests folder and set up Travis.
 * Documented how to customize UI. Added an example.
+* Now XLFormViewController extends from UIViewController instead of UITableViewController.
+* Added tableView property as a XLFormViewController IBOutlet.
+* Added support for storyboard reuse identifier and nib file.
+* Button selection can be handled using a selector or block.
+* Added addAsteriskToRequiredRowsTitle property to XLFormDescriptor. NO is used as value by default.
 
 Version 2.0.0 (cocoaPod)
 
