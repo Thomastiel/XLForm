@@ -41,6 +41,14 @@
         }];
         return [result componentsJoinedByString:@" "];
     }
+    if ([self isKindOfClass:[NSSet class]]) {
+        NSMutableArray * result = [NSMutableArray array];
+        [(NSSet *)self enumerateObjectsUsingBlock:^(id obj, BOOL *stop) {
+            if ([obj displayText])
+                [result addObject:[obj displayText]];
+        }];
+        return [result componentsJoinedByString:@" "];
+    }
     if ([self conformsToProtocol:@protocol(XLFormOptionObject)]){
         return [(id<XLFormOptionObject>)self formDisplayText];
     }
