@@ -89,7 +89,7 @@ typedef NS_ENUM(NSUInteger, XLFormPresentationMode) {
 // properties used for dynamic selectors
 // =====================================
 @property Class selectorControllerClass;
-
+@property (nonatomic) NSDictionary *selectorControllerConfig;
 @property id leftRightSelectorLeftOptionSelected;
 
 @end

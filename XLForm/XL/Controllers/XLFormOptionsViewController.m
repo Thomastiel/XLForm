@@ -69,6 +69,20 @@
     [super viewDidLoad];
     // register option cell
     [self.tableView registerClass:[XLFormRightDetailCell class] forCellReuseIdentifier:CELL_REUSE_IDENTIFIER];
+    
+    NSDictionary *selectorConfig = self.rowDescriptor.selectorControllerConfig;
+    
+    if (selectorConfig[@"title"]) {
+        self.title = selectorConfig[@"title"];
+    }
+    
+    if (selectorConfig[@"barColor"]) {
+        self.navigationController.navigationBar.barTintColor = selectorConfig[@"barColor"];
+    }
+    
+    if (selectorConfig[@"backgroundView"]) {
+        self.tableView.backgroundView = selectorConfig[@"backgroundView"];
+    }
 }
 
 
@@ -82,6 +96,12 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     XLFormRightDetailCell * cell = [tableView dequeueReusableCellWithIdentifier:CELL_REUSE_IDENTIFIER forIndexPath:indexPath];
+    
+    if (self.rowDescriptor.selectorControllerConfig[@"backgroundView"]) {
+        cell.backgroundColor = [UIColor clearColor];
+        cell.textLabel.textColor = [UIColor whiteColor];
+    }
+    
     id cellObject =  [self.options objectAtIndex:indexPath.row];
     cell.textLabel.text = [self valueDisplayTextForOption:cellObject];
     if ([self.rowDescriptor.rowType isEqualToString:XLFormRowDescriptorTypeMultipleSelector] || [self.rowDescriptor.rowType isEqualToString:XLFormRowDescriptorTypeMultipleSelectorPopover]){
