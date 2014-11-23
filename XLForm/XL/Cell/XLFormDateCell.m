@@ -114,6 +114,12 @@
             XLFormRowDescriptor * datePickerRowDescriptor = [XLFormRowDescriptor formRowDescriptorWithTag:nil rowType:XLFormRowDescriptorTypeDatePicker];
             XLFormDatePickerCell * datePickerCell = (XLFormDatePickerCell *)[datePickerRowDescriptor cellForFormController:controller];
             [self setModeToDatePicker:datePickerCell.datePicker];
+            // Apply config to newly created date picker
+            [self.rowDescriptor.cellConfig enumerateKeysAndObjectsUsingBlock:^(NSString *keyPath, id value, BOOL * __unused stop) {
+                if ([keyPath hasPrefix:@"datePicker."]) {
+                    [datePickerCell setValue:value forKeyPath:keyPath];
+                }
+            }];
             if (self.rowDescriptor.value){
                 [datePickerCell.datePicker setDate:self.rowDescriptor.value];
             }
@@ -144,6 +150,11 @@
 
 - (NSString *)formattedDate:(NSDate *)date
 {
+    // Hack in date formatter since this method is called before the config is set when the cell first loads
+    if (!self.dateFormatter && [self.rowDescriptor.cellConfig objectForKey:@"dateFormatter"]) {
+        self.dateFormatter = [self.rowDescriptor.cellConfig objectForKey:@"dateFormatter"];
+    }
+    
     if (self.dateFormatter){
         return [self.dateFormatter stringFromDate:date];
     }
