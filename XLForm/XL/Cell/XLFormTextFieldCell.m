@@ -2,7 +2,7 @@
 //  XLFormTextFieldCell.m
 //  XLForm ( https://github.com/xmartlabs/XLForm )
 //
-//  Copyright (c) 2014 Xmartlabs ( http://xmartlabs.com )
+//  Copyright (c) 2015 Xmartlabs ( http://xmartlabs.com )
 //
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +32,7 @@
 @interface XLFormTextFieldCell() <UITextFieldDelegate>
 
 @property NSArray * dynamicCustomConstraints;
+@property UIReturnKeyType returnKeyType;
 
 @end
 
@@ -40,6 +41,7 @@
 @synthesize textField = _textField;
 @synthesize textLabel = _textLabel;
 @synthesize valueLabel = _valueLabel;
+
 
 #pragma mark - KVO
 
@@ -70,7 +72,6 @@
     [self.contentView addConstraints:[self layoutConstraints]];
     [self.textLabel addObserver:self forKeyPath:@"text" options:NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew context:0];
     [self.imageView addObserver:self forKeyPath:@"image" options:NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew context:0];
-    
     [self.textField addTarget:self action:@selector(textFieldDidChange:) forControlEvents:UIControlEventEditingChanged];
 }
 
@@ -133,14 +134,16 @@
     self.textLabel.text = ((self.rowDescriptor.required && self.rowDescriptor.title && self.rowDescriptor.sectionDescriptor.formDescriptor.addAsteriskToRequiredRowsTitle) ? [NSString stringWithFormat:@"%@*", self.rowDescriptor.title] : self.rowDescriptor.title);
     
     self.valueLabel.text = self.rowDescriptor.valueLabelText;
-    
+
     self.textField.text = self.rowDescriptor.value ? [self.rowDescriptor.value displayText] : self.rowDescriptor.noValueDisplayText;
-    [self.textField setEnabled:!self.rowDescriptor.disabled];
-    self.textLabel.textColor  = self.rowDescriptor.disabled ? [UIColor grayColor] : [UIColor blackColor];
-    self.textField.textColor = self.rowDescriptor.disabled ? [UIColor grayColor] : [UIColor blackColor];
-    self.valueLabel.textColor = self.rowDescriptor.disabled ? [UIColor grayColor] : [UIColor blackColor];
-    self.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    [self.textField setEnabled:!self.rowDescriptor.isDisabled];
+    self.textField.textColor = self.rowDescriptor.isDisabled ? [UIColor grayColor] : [UIColor blackColor];
     self.textField.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+}
+
+-(BOOL)formDescriptorCellCanBecomeFirstResponder
+{
+    return (!self.rowDescriptor.isDisabled);
 }
 
 -(BOOL)formDescriptorCellBecomeFirstResponder
@@ -148,9 +151,16 @@
     return [self.textField becomeFirstResponder];
 }
 
--(BOOL)formDescriptorCellResignFirstResponder
+-(void)highlight
 {
-    return [self.textField resignFirstResponder];
+    [super highlight];
+    self.textLabel.textColor = self.tintColor;
+}
+
+-(void)unhighlight
+{
+    [super unhighlight];
+    [self.formViewController updateFormRow:self.rowDescriptor];
 }
 
 #pragma mark - Properties
@@ -159,7 +169,6 @@
 {
     if (_textLabel) return _textLabel;
     _textLabel = [UILabel autolayoutView];
-    [_textLabel setFont:[UIFont preferredFontForTextStyle:UIFontTextStyleBody]];
     return _textLabel;
 }
 
@@ -167,7 +176,6 @@
 {
     if (_textField) return _textField;
     _textField = [UITextField autolayoutView];
-    [_textField setFont:[UIFont preferredFontForTextStyle:UIFontTextStyleBody]];
     return _textField;
 }
 
@@ -177,7 +185,7 @@
         _valueLabel = [UILabel autolayoutView];
         [_valueLabel setFont:[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]];
     }
-    
+
     return _valueLabel;
 }
 
@@ -187,8 +195,11 @@
 {
     NSMutableArray * result = [[NSMutableArray alloc] init];
     [self.textLabel setContentHuggingPriority:500 forAxis:UILayoutConstraintAxisHorizontal];
-    [result addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[_textLabel]-[_textField]-[_valueLabel]" options:NSLayoutFormatAlignAllBaseline metrics:0 views:NSDictionaryOfVariableBindings(_textLabel, _textField, _valueLabel)]];
-    [result addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-12-[_textField]-12-|" options:NSLayoutFormatAlignAllBaseline metrics:nil views:NSDictionaryOfVariableBindings(_textField)]];
+    [result addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[_textLabel]-[_textField]" options:NSLayoutFormatAlignAllBaseline metrics:0 views:NSDictionaryOfVariableBindings(_textLabel, _textField)]];
+
+    [result addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-(>=11)-[_textField]-(>=11)-|" options:NSLayoutFormatAlignAllBaseline metrics:nil views:NSDictionaryOfVariableBindings(_textField)]];
+
+    [result addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-(>=11)-[_textLabel]-(>=11)-|" options:NSLayoutFormatAlignAllBaseline metrics:nil views:NSDictionaryOfVariableBindings(_textLabel)]];
     return result;
 }
 
@@ -197,36 +208,26 @@
     if (self.dynamicCustomConstraints){
         [self.contentView removeConstraints:self.dynamicCustomConstraints];
     }
-    NSDictionary * views = @{@"label": self.textLabel, @"textField": self.textField, @"image": self.imageView, @"valueLabel": self.valueLabel};
-    
-    NSMutableString *format = [NSMutableString stringWithString:@"H:"];
-    
-    // Image/Leading Edge
+    NSDictionary * views = @{@"label": self.textLabel, @"textField": self.textField, @"image": self.imageView};
+    NSDictionary *metrics = @{@"leftMargin" : @16.0, @"rightMargin" : self.textField.textAlignment == NSTextAlignmentRight ? @16.0 : @4.0};
+
     if (self.imageView.image){
-        [format appendString:@"[image]-"];
+        if (self.textLabel.text.length > 0){
+            self.dynamicCustomConstraints = [NSLayoutConstraint constraintsWithVisualFormat:@"H:[image]-[label]-[textField]-(rightMargin)-|" options:0 metrics:metrics views:views];
+        }
+        else{
+            self.dynamicCustomConstraints = [NSLayoutConstraint constraintsWithVisualFormat:@"H:[image]-[textField]-(rightMargin)-|" options:0 metrics:metrics views:views];
+        }
     }
-    else {
-        [format appendString:@"|-16-"];
+    else{
+        if (self.textLabel.text.length > 0){
+            self.dynamicCustomConstraints = [NSLayoutConstraint constraintsWithVisualFormat:@"H:|-(leftMargin)-[label]-[textField]-(rightMargin)-|" options:0 metrics:metrics views:views];
+        }
+        else{
+            self.dynamicCustomConstraints = [NSLayoutConstraint constraintsWithVisualFormat:@"H:|-(leftMargin)-[textField]-(rightMargin)-|" options:0 metrics:metrics views:views];
+        }
     }
-    
-    // Text Label
-    if (self.textLabel.text.length > 0) {
-        [format appendString:@"[label]-"];
-    }
-    
-    // Text Field
-    [format appendString:@"[textField]-"];
-    
-    // Value Label
-    if (self.valueLabel.text.length > 0) {
-        [format appendString:@"[valueLabel]-"];
-    }
-    
-    // Trailing Edge
-    [format appendString:@"4-|"];
-    
-    self.dynamicCustomConstraints = [NSLayoutConstraint constraintsWithVisualFormat:format options:0 metrics:0 views:views];
-    
+
     [self.contentView addConstraints:self.dynamicCustomConstraints];
     [super updateConstraints];
 }
@@ -260,12 +261,14 @@
 
 - (void)textFieldDidBeginEditing:(UITextField *)textField
 {
+    [self.formViewController beginEditing:self.rowDescriptor];
     [self.formViewController textFieldDidBeginEditing:textField];
 }
 
 - (void)textFieldDidEndEditing:(UITextField *)textField
 {
     [self textFieldDidChange:textField];
+    [self.formViewController endEditing:self.rowDescriptor];
     [self.formViewController textFieldDidEndEditing:textField];
 }
 
@@ -284,6 +287,16 @@
     } else {
         self.rowDescriptor.value = nil;
     }
+}
+
+-(void)setReturnKeyType:(UIReturnKeyType)returnKeyType
+{
+    self.textField.returnKeyType = returnKeyType;
+}
+
+-(UIReturnKeyType)returnKeyType
+{
+    return self.textField.returnKeyType;
 }
 
 @end

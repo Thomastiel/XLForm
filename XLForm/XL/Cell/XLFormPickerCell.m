@@ -2,7 +2,7 @@
 //  XLFormPickerCell.m
 //  XLForm ( https://github.com/xmartlabs/XLForm )
 //
-//  Copyright (c) 2014 Xmartlabs ( http://xmartlabs.com )
+//  Copyright (c) 2015 Xmartlabs ( http://xmartlabs.com )
 //
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,6 +39,17 @@
 @synthesize pickerView = _pickerView;
 @synthesize inlineRowDescriptor = _inlineRowDescriptor;
 
+-(BOOL)formDescriptorCellCanBecomeFirstResponder
+{
+    return ((!self.rowDescriptor.isDisabled) && (self.inlineRowDescriptor == nil));
+}
+
+-(BOOL)formDescriptorCellBecomeFirstResponder
+{
+    return [self becomeFirstResponder];
+}
+
+
 -(BOOL)canResignFirstResponder
 {
     return YES;
@@ -46,7 +57,7 @@
 
 -(BOOL)canBecomeFirstResponder
 {
-    return (self.inlineRowDescriptor == nil);
+    return [self formDescriptorCellCanBecomeFirstResponder];
 }
 
 #pragma mark - Properties
@@ -65,7 +76,7 @@
     if (self.inlineRowDescriptor) {
         return self.inlineRowDescriptor.selectorOptions;
     }
-    
+
     return self.rowDescriptor.selectorOptions;
 }
 
@@ -96,30 +107,39 @@
     [super configure];
     [self.contentView addSubview:self.pickerView];
     [self.contentView addConstraint:[NSLayoutConstraint constraintWithItem:self.pickerView attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:self.contentView attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
+    [self.contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-0-[pickerView]-0-|" options:0 metrics:0 views:@{@"pickerView" : self.pickerView}]];
 }
 
 -(void)update
 {
     [super update];
-    
+
     if (self.optionsAreMultidimensional) {
         for (int i=0; i<self.options.count; i++) {
             id value = [self.value objectAtIndex:i];
             NSUInteger index = [self indexOfOptionWithValue:value fromOptions:[self.options objectAtIndex:i]];
-            
+
             if (index != NSNotFound) {
+                BOOL isDisable = self.rowDescriptor.isDisabled;
+                self.userInteractionEnabled = !isDisable;
+                self.contentView.alpha = isDisable ? 0.5 : 1.0;
                 [self.pickerView selectRow:index inComponent:i animated:NO];
+                [self.pickerView reloadAllComponents];
             }
         }
     }
     else {
         NSUInteger index = [self indexOfOptionWithValue:self.value fromOptions:self.options];
-        
+
         if (index != NSNotFound) {
+            BOOL isDisable = self.rowDescriptor.isDisabled;
+            self.userInteractionEnabled = !isDisable;
+            self.contentView.alpha = isDisable ? 0.5 : 1.0;
             [self.pickerView selectRow:index inComponent:0 animated:NO];
+            [self.pickerView reloadAllComponents];
         }
     }
-    
+
     [self.pickerView reloadAllComponents];
     
 }
@@ -136,16 +156,18 @@
     if (self.optionsAreMultidimensional) {
         return [[[self.options objectAtIndex:component] objectAtIndex:row] displayText];
     }
-    
+
     return [[self.options objectAtIndex:row] displayText];
 }
 
 - (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component
 {
     self.value = [self valueFromComponents];
-    
+
     if (self.inlineRowDescriptor){
         [[self.inlineRowDescriptor cellForFormController:self.formViewController] update];
+        self.inlineRowDescriptor.value = [self.inlineRowDescriptor.selectorOptions objectAtIndex:row];
+        [self.formViewController updateFormRow:self.inlineRowDescriptor];
     }
     else{
         [self becomeFirstResponder];
@@ -167,7 +189,7 @@
     if (self.optionsAreMultidimensional) {
         return [[self.options objectAtIndex:component] count];
     }
-    
+
     return self.options.count;
 }
 
@@ -177,17 +199,17 @@
 {
     if (self.optionsAreMultidimensional) {
         NSMutableArray *values = [NSMutableArray array];
-        
+
         for (int component=0; component<self.pickerView.numberOfComponents; component++) {
             NSInteger row = [self.pickerView selectedRowInComponent:component];
             [values addObject: [[self.options objectAtIndex:component] objectAtIndex:row]];
         }
-        
+
         return values;
     }
-    
+
     NSInteger row = [self.pickerView selectedRowInComponent:0];
-    
+
     return [self.options objectAtIndex:row];
 }
 
